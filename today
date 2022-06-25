@@ -1,0 +1,52 @@
+#!/bin/bash
+
+TODAY=$(date +'%Y-%m-%d')
+FILENAME="${TODAY}.md"
+NOTESPATH="${HOME}/.notes"
+TEMPLATEPATH=${HOME}/.notes/templates
+
+
+CURRENTNOTE="${NOTESPATH}/${FILENAME}"
+YDAYNOTE="${NOTESPATH}/$(date -v-1d +%Y-%m-%d).md"
+
+# Find the right sed version.
+SED=$(which sed)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    if ! command -v gsed &> /dev/null; then
+        echo "GNU Sed must be installed "
+        exit
+    fi
+    SED=$(which gsed)
+fi
+
+# Create everythign if it's missing.
+[[ ! -d ${NOTESPATH} ]] && mkdir ${NOTESPATH}
+
+[[ ! -d ${TEMPLATEPATH} ]] && mkdir ${TEMPLATEPATH}
+
+if [[ ! -f "${TEMPLATEPATH}/daily.md}" ]]; then
+    cp "${PWD}/templates/daily.md" "${TEMPLATEPATH}/daily.md"
+fi
+
+
+## Create today's note and init it...
+if [[ ! -f ${CURRENTNOTE} ]]; then
+
+    TEMPLATE=$(<"${TEMPLATEPATH}/daily.md")
+    TEMPLATE=${TEMPLATE/<%d-%m-%Y>/${TODAY}}
+
+    if [[ -f ${YDAYNOTE} ]]; then
+        echo "Migrating old todos"
+        OLDTODOS=$(grep "\[ \]" ${YDAYNOTE})
+        while IFS= read -r TODO; do
+            TEMPLATE=$(echo "$TEMPLATE" | "${SED}" "3a\\$TODO")
+        done <<< "$OLDTODOS"
+    fi
+    echo "$TEMPLATE" > ${CURRENTNOTE}
+fi
+
+if [[ $1 == "edit" ]]; then
+    ${EDITOR} "${CURRENTNOTE}"
+else
+    open -a "Google Chrome" "${CURRENTNOTE}"
+fi
